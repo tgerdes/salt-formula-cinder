@@ -10,6 +10,8 @@ volume_name_template = volume-%s
 
 verbose = True
 
+osapi_volume_workers = {{ controller.get('volume_workers', '4') }}
+
 auth_strategy = keystone
 
 state_path = /var/lib/cinder
@@ -21,6 +23,7 @@ glance_num_retries=0
 debug=False
 
 os_region_name={{ controller.identity.region }}
+allow_availability_zone_fallback = {{ controller.get('availability_zone_fallback', True) }}
 
 #glance_api_ssl_compression=False
 #glance_api_insecure=False
@@ -54,14 +57,12 @@ rpc_response_timeout=3600
 rpc_backend=cinder.openstack.common.rpc.impl_kombu
 control_exchange=cinder
 
-
 volume_clear={{ controller.wipe_method }}
 
 {%- if controller.notification %}
 control_exchange = cinder
 notification_driver = messagingv2
 {%- endif %}
-
 
 volume_name_template = volume-%s
 
@@ -82,12 +83,19 @@ lock_path=/var/lock/cinder
 lock_path=/var/lock/cinder
 
 [oslo_messaging_rabbit]
+{%- if controller.message_queue.members is defined %}
+rabbit_hosts = {% for member in controller.message_queue.members -%}
+                   {{ member.host }}:{{ member.get('port', 5672) }}
+                   {%- if not loop.last -%},{%- endif -%}
+               {%- endfor -%}
+{%- else %}
 rabbit_host = {{ controller.message_queue.host }}
 rabbit_port = {{ controller.message_queue.port }}
+{%- endif %}
+
 rabbit_userid = {{ controller.message_queue.user }}
 rabbit_password = {{ controller.message_queue.password }}
 rabbit_virtual_host = {{ controller.message_queue.virtual_host }}
-rabbit_ha_queues={{ controller.message_queue.ha_queues }}
 kombu_reconnect_delay=5.0
 
 {%- if controller.identity.get('version', 2) == 2 %}
@@ -313,7 +321,6 @@ rbd_secret_uuid={{ controller.storage.secret_uuid }}
 {%- endfor %}
 
 {%- endif %}
-
 
 {%- if controller.storage.engine == "hp3par" %}
 

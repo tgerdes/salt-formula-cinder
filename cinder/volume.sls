@@ -18,7 +18,7 @@ cinder_volume_packages:
   - require_in:
     - service: cinder_volume_services
 
-{%- if pillar.cinder.controller is not defined or not pillar.cinder.controller.enabled %}
+{%- if not pillar.cinder.get('controller', {}).get('enabled', False) %}
 
 /etc/cinder/cinder.conf:
   file.managed:
@@ -36,6 +36,8 @@ cinder_volume_packages:
 
 {%- endif %}
 
+{%- if not grains.get('noservices', False) %}
+
 cinder_volume_services:
   service.running:
   - names: {{ volume.services }}
@@ -43,6 +45,8 @@ cinder_volume_services:
   - watch:
     - file: /etc/cinder/cinder.conf
     - file: /etc/cinder/api-paste.ini
+
+{%- endif %}
 
 {# new way #}
 
@@ -118,7 +122,7 @@ cinder_driver_fujitsu_{{ loop.index }}:
   - source: salt://cinder/files/{{ volume.version }}/cinder_fujitsu_eternus_dx.xml
   - template: jinja
   - defaults:
-      volume_type_name: "{{ backend.pool }}"
+      backend_name: "{{ backend_name }}"
   - require:
     - pkg: cinder-driver-fujitsu
 
